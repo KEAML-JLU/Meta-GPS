@@ -23,7 +23,6 @@ class Meta(nn.Module):
         self.update_step_test = args.update_step_test
         self.feat = feat
         self.id = id_by_class
-        self.k = args.k
         self.adj = adj
         self.adj_tilde = adj_tilde # one-hop adj
         self.adj_two = adj_two # two-hop adj

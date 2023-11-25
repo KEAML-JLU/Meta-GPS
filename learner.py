@@ -32,7 +32,7 @@ class Learner(nn.Module):
         h = h.to(device)
 
         for name, param in self.config:
-            if name is 'Linear':
+            if name == 'Linear':
                 w, b = vars[idx], vars[idx + 1]
                 h = F.linear(h, w, b)
                 idx += 2
@@ -63,7 +63,7 @@ class Scaling(nn.Module):
         self.num_attri = self.args.way
         self.vars = nn.ParameterList()
         for i, (name, param) in enumerate(self.config):
-            if name is 'Linear':
+            if name == 'Linear':
                 w = nn.Parameter(torch.ones(*param))
                 init.kaiming_normal_(w)
                 self.vars.append(w)
@@ -74,15 +74,15 @@ class Scaling(nn.Module):
             vars = self.vars
         idx = 0
         for name, param in self.config:
-            if name is 'Linear':
+            if name == 'Linear':
                 w, b = vars[idx], vars[idx + 1]
                 x = F.linear(x, w, b)
                 idx += 2
-            elif name is 'relu':
+            elif name == 'relu':
                 x = F.relu(x)
-            elif name is 'elu':
+            elif name == 'elu':
                 x = F.elu(x)
-            elif name is 'leaky_relu':
+            elif name == 'leaky_relu':
                 x = F.leaky_relu(x)
         x = torch.mean(x, dim=0)
         x1, x2 = x[:self.args.way * self.args.way].view(self.args.way, self.args.way), x[self.args.way * self.args.way:].view(self.args.way)
@@ -113,7 +113,7 @@ class Translation(nn.Module):
         self.label_dim = label_num
         self.vars = nn.ParameterList()
         for i, (name, param) in enumerate(self.config):
-            if name is 'Linear':
+            if name == 'Linear':
                 w = nn.Parameter(torch.ones(*param))
                 init.kaiming_normal_(w)
                 self.vars.append(w)
@@ -124,15 +124,15 @@ class Translation(nn.Module):
             vars = self.vars
         idx = 0
         for name, param in self.config:
-            if name is 'Linear':
+            if name == 'Linear':
                 w, b = vars[idx], vars[idx + 1]
                 x = F.linear(x, w, b)
                 idx += 2
-            elif name is 'relu':
+            elif name == 'relu':
                 x = F.relu(x)
-            elif name is 'elu':
+            elif name == 'elu':
                 x = F.elu(x)
-            elif name is 'leaky_relu':
+            elif name == 'leaky_relu':
                 x = F.leaky_relu(x)
         x = torch.mean(x, dim=0) # this is modified, in fact, it is correct
         x1, x2 = x[:self.args.way * self.args.way].view(self.args.way, self.args.way), x[self.args.way * self.args.way:].view(self.args.way)
@@ -162,7 +162,7 @@ class Transform(nn.Module):
         self.config = config
         for i, (name, param) in enumerate(self.config):
 
-            if name is 'Linear':
+            if name == 'Linear':
 
                 w = nn.Parameter(torch.ones(param[1], param[0]))
                 init.kaiming_normal_(w)
@@ -179,7 +179,7 @@ class Transform(nn.Module):
         h = h.to(device)
 
         for name, param in self.config:
-            if name is 'Linear':
+            if name == 'Linear':
                 w, b = vars[idx], vars[idx + 1]
                 h = F.linear(h, w, b)
                 idx += 2

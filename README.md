@@ -7,9 +7,9 @@ python train_gps.py --dataset [dataset]
 ```
 
 ## Extension
-Our extension work can be found here.
+Our extension work can be found **[here](https://github.com/KEAML-JLU/Meta-GPS-Plus)**.
 
-### Cite
+## Cite
 If you find our work can help your research, please cite our work! <br>
 ```
 @inproceedings{liu2022few,
@@ -19,7 +19,9 @@ If you find our work can help your research, please cite our work! <br>
   pages={471--481},
   year={2022}
 }
+```
 
+```
 @inproceedings{liu2024enhance,
   title={Meta-GPS++: Enhancing Graph Meta-Learning with Contrastive Learning and Self-Training},
   author={Liu, Yonghao and Li, Mengyu and Li, Ximing and Huang, Lan and Giunchiglia, Fausto and Liang, Yanchun and Feng, Xiaoyue and Guan, Renchu},

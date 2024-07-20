@@ -3,6 +3,10 @@ The source code of "Few-shot node classification on attributed networks with gra
 
 ## Usage
 ```
+cd Meta-GPS
+```
+
+```
 python train_gps.py --dataset [dataset]
 ```
 

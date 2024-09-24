@@ -15,7 +15,7 @@ class Learner(nn.Module):
         self.config = config
         for i, (name, param) in enumerate(self.config):
 
-            if name is 'Linear':
+            if name == 'Linear':
 
                 w = nn.Parameter(torch.ones(param[1], param[0]))
                 init.kaiming_normal_(w)

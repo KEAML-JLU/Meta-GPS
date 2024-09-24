@@ -3,16 +3,18 @@ from __future__ import print_function
 
 import time
 import argparse
-
+import warnings
 
 from utils import *
 from models import *
+
+warnings.filterwarnings("ignore")
 
 # Training settings
 parser = argparse.ArgumentParser()
 parser.add_argument('--use_cuda', action='store_true', help='Disables CUDA training.')
 parser.add_argument('--seed', type=int, default=1234, help='Random seed.')
-parser.add_argument('--episodes', type=int, default=400,
+parser.add_argument('--episodes', type=int, default=2000,
                     help='Number of episodes to train.')
 parser.add_argument('--hidden', type=int, default=16,
                     help='Number of hidden units.')
@@ -52,10 +54,6 @@ def sgc_precompute(features, adj, degree):
     return features
 
 
-#features = sgc_precompute(features, adj, 2)
-
-print(features.shape)
-
 config = [('Linear', [args.way, args.way])]
 config_fea = [('Linear', [features.shape[1], args.hidden])]
 config_scal = [('Linear', [args.way * (args.way + 1), args.way])]
@@ -92,7 +90,7 @@ def train(class_selected, id_support, id_query):
 
         meta_information[i] = torch.FloatTensor(np.array([id_by_class_prototype_embedding[k] for k in label_list])).to(device)
     for epoch in range(10):
-        acc, f1 = maml(id_support, y_spt, id_query, y_qry, meta_information, class_selected, labels, training=True)
+      acc, f1 = maml(id_support, y_spt, id_query, y_qry, meta_information, class_selected, labels, training=True)
     return acc, f1
 
 
@@ -111,7 +109,7 @@ def test(class_selected, id_support, id_query):
             if k not in label_list:
                 label_list.append(int(k))
         meta_information[i] = torch.from_numpy(np.array([id_by_class_prototype_embedding[k] for k in label_list])).to(device)
-    #for epoch in range(5):
+    
     acc, f1 = maml(id_support, y_spt, id_query, y_qry, meta_information, class_selected, labels, training=False)
     return acc, f1
 
@@ -132,8 +130,8 @@ if __name__ == '__main__':
     # Train model
     t_total = time.time()
     meta_train_acc = []
-    best_test_acc = 0
-    best_test_f1 = 0
+    best_val_acc = 0
+    best_val_f1 = 0
     best_episode = 0
     best_loc = 0
     paticience = 0
@@ -149,39 +147,43 @@ if __name__ == '__main__':
             
             
             # validation
-            meta_test_acc = []
-            meta_test_f1 = []
+            meta_val_acc = []
+            meta_val_f1 = []
             for idx in range(meta_valid_num):
                 id_support, id_query, class_selected = valid_pool[idx]
-                acc_test, f1_test = test(class_selected, id_support, id_query)
-                meta_test_acc.append(acc_test)
-                meta_test_f1.append(f1_test)
-            print("Meta-valid_Accuracy: {}, Meta-valid_F1: {}".format(np.array(meta_test_acc).mean(axis=0),
-                                                                        np.array(meta_test_f1).mean(axis=0)))
-            
-            
-            # testing
-            meta_test_acc = []
-            meta_test_f1 = []
-            paticience += 1
-            if paticience > 20:
-                break
-            for idx in range(meta_test_num):
-                id_support, id_query, class_selected = test_pool[idx]
-                acc_test, f1_test = test(class_selected, id_support, id_query)
-                meta_test_acc.append(acc_test)
-                meta_test_f1.append(f1_test)
-            acc = np.array(meta_test_acc).mean(axis=0)
-            f1 = np.array(meta_test_f1).mean(axis=0)
-            print("Meta-Test_Accuracy: {}".format(acc))
-            max_test_acc, max_id = np.max(acc), np.argmax(acc)
-            if max_test_acc > best_test_acc:
-                best_test_acc = max_test_acc
+                acc_val, f1_val = test(class_selected, id_support, id_query)
+                meta_val_acc.append(acc_val)
+                meta_val_f1.append(f1_val)
+            print("Meta-valid_Accuracy: {}, Meta-valid_F1: {}".format(np.array(meta_val_acc).mean(axis=0),
+                                          np.array(meta_val_f1).mean(axis=0)))
+            acc = np.array(meta_val_acc).mean(axis=0)
+            f1 = np.array(meta_val_f1).mean(axis=0)
+            max_val_acc, max_id = np.max(acc), np.argmax(acc)
+            if max_val_acc > best_val_acc:
+                best_val_acc = max_val_acc
                 best_episode = episode
                 best_loc = max_id
-                best_test_f1 = f1[best_loc]
+                best_val_f1 = f1[best_loc]
                 paticience = 0
-            print("Meta-Test_F1: {}".format(f1))
+            else:
+              paticience += 1
+            if paticience > 50:
+                break
+        
+    # testing
+    meta_test_acc = []
+    meta_test_f1 = []
+    
+    for idx in range(meta_test_num):
+        id_support, id_query, class_selected = test_pool[idx]
+        acc_test, f1_test = test(class_selected, id_support, id_query)
+        meta_test_acc.append(acc_test)
+        meta_test_f1.append(f1_test)
+    acc = np.array(meta_test_acc).mean(axis=0)
+    f1 = np.array(meta_test_f1).mean(axis=0)
+    print("Meta-Test_Accuracy: {}".format(acc))
+    print("Meta-Test_F1: {}".format(f1))
 
+    best_test_acc, best_test_f1 = np.max(acc), np.max(f1)
     print("Total time elapsed: {:.4f}s".format(time.time() - t_total))
-    print("{} way {} shot best test acc is {} and best f1 is {}, at {} episode".format(n_way, k_shot, best_test_acc, best_test_f1, best_episode))
+    print("{} way {} shot best test acc is {} and best f1 is {}".format(n_way, k_shot, best_test_acc, best_test_f1))

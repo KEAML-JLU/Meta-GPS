@@ -1,3 +1,4 @@
+import math
 import numpy as np
 import torch
 import torch.nn as nn
@@ -27,8 +28,12 @@ class Meta(nn.Module):
         self.adj_tilde = adj_tilde # one-hop adj
         self.adj_two = adj_two # two-hop adj
 
+        self.h_0 = feat
+        self.h_1 = torch.spmm(adj, feat)
+        self.h_2 = torch.spmm(adj_tilde, self.h_1)
+
         self.MI = True  
-        self.hidden = args.hidden
+        self.hidden = feat.shape[1]#args.hidden
         self.mlp = MLP(self.hidden)
         fc_params = nn.Linear(self.hidden, self.n_way, bias=None)
         self.fc = [fc_params.weight.detach()] * self.task_num
@@ -46,8 +51,24 @@ class Meta(nn.Module):
         self.transformation = Transform(config_transform)
         self.transformation = self.transformation.to(device)
 
+        self.weight = nn.ParameterList() 
+        weight = nn.Parameter(torch.FloatTensor(feat.shape[1], 1))
+        stdv_1 = 1. / math.sqrt(feat.shape[1])
+        weight.data.uniform_(-stdv_1, stdv_1)
+        self.weight.append(weight)
+        self.weight = self.weight.to(device)
+
+        preds = [self.h_0, self.h_1, self.h_2]
+        pps = torch.stack(preds, dim=1).to(device)
+        retain_score = F.linear(pps, self.weight[0].T) # num_dim -> 1
+        retain_score = retain_score.squeeze()
+        retain_score = torch.sigmoid(retain_score)
+        retain_score = retain_score.unsqueeze(1)
+
+        self.h = torch.matmul(retain_score, pps).squeeze().to(device)
+
         self.meta_optim = optim.Adam([{'params':self.net.parameters()}, {'params':self.mlp.trans.parameters()},
-                                      {'params':self.scaling.parameters()}, {'params':self.translation.parameters()},{'params':self.transformation.parameters()}], lr=self.meta_lr)
+        {'params':self.scaling.parameters()}, {'params':self.translation.parameters()},{'params':self.transformation.parameters()}, {'params':self.weight}], lr=self.meta_lr)
         
     def reset_fc(self):
         self.fc = [torch.Tensor(self.n_way, self.hidden)]*self.task_num
@@ -60,18 +81,18 @@ class Meta(nn.Module):
 
     def forward(self, x_spt, y_spt, x_qry, y_qry, meta_information_dict, class_selected, labels, training):
 
-        self.h = self.transformation(self.feat) # [25000,16]
-        self.h = sgc_precompute(self.h, self.adj_tilde, self.adj_two)
-        self.id_by_class_prototype_embedding = {k: self.h[np.array(self.id[k])].mean(0) for k in self.id.keys()}
+        # self.h = self.transformation(self.feat) # [25000,16]
+        # self.h = sgc_precompute(self.h, self.adj_tilde, self.adj_two)
+        # self.id_by_class_prototype_embedding = {k: self.h[np.array(self.id[k])].mean(0) for k in self.id.keys()}
         step = self.update_step if training is True else self.update_step_test
         querysz = self.n_way * self.k_qry
         losses_s = [0 for _ in range(step)]
         losses_q = [0 for _ in range(step + 1)]  # losses_q[i] is the loss on step i
         corrects = [0 for _ in range(step + 1)]
         f1s = [0 for _ in range(step + 1)]
-        meta_information_dict = {}
-        for i in range(self.task_num):
-            meta_information_dict[i] = torch.stack([self.id_by_class_prototype_embedding[int(k)] for k in class_selected[i]]).to(device)
+        # meta_information_dict = {}
+        # for i in range(self.task_num):
+        #     meta_information_dict[i] = torch.stack([self.id_by_class_prototype_embedding[int(k)] for k in class_selected[i]]).to(device)
 
         for i in range(self.task_num):
             meta_information = meta_information_dict[i] # [n_way, hidden]
